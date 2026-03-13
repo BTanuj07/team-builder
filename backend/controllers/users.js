@@ -60,7 +60,7 @@ exports.getUserById = async (req, res) => {
 // @desc    Update user profile
 exports.updateProfile = async (req, res) => {
   try {
-    const { name, college, skills, availability, portfolioLinks } = req.body;
+    const { name, email, college, skills, availability, portfolioLinks } = req.body;
     const userId = req.params.id;
 
     const user = await User.findById(userId);
@@ -74,6 +74,7 @@ exports.updateProfile = async (req, res) => {
     }
 
     if (name) user.name = name;
+    if (email) user.email = email;
     if (college) user.college = college;
     if (skills) user.skills = skills;
     if (availability) user.availability = availability;

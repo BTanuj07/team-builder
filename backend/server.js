@@ -19,19 +19,38 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // CORS Configuration
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  process.env.MOBILE_URL,
+  'http://localhost:19000',
+  'http://localhost:19006',
+  'http://localhost:3000',
+  'https://your-app.onrender.com', // Will be updated after deployment
+];
+
 app.use(cors({
-  origin: [process.env.FRONTEND_URL, process.env.MOBILE_URL, 'http://localhost:19000', 'http://localhost:19006'],
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
 
 // Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
+mongoose.connect(process.env.MONGODB_URI)
+.then(() => {
+  console.log('✅ MongoDB connected');
+  console.log('📊 Database:', mongoose.connection.name);
 })
-.then(() => console.log('✅ MongoDB connected'))
 .catch(err => {
-  console.error('❌ MongoDB connection error:', err);
+  console.error('❌ MongoDB connection error:', err.message);
+  console.error('💡 Check: 1) Internet connection 2) Atlas IP whitelist 3) Credentials');
   process.exit(1);
 });
 
@@ -65,7 +84,8 @@ app.use((req, res) => {
 
 const port = process.env.PORT || 5000;
 
-app.listen(port, () => {
+app.listen(port, '0.0.0.0', () => {
   console.log(`🚀 Server running on port ${port}`);
   console.log(`📱 Environment: ${process.env.NODE_ENV}`);
+  console.log(`🌐 Server URL: ${process.env.NODE_ENV === 'production' ? 'https://your-app.onrender.com' : `http://localhost:${port}`}`);
 });

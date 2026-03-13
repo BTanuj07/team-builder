@@ -4,10 +4,10 @@ const Skill = require('../models/skill');
 exports.getSkills = async (req, res) => {
   try {
     const skills = await Skill.find();
-    res.json(skills);
+    res.json({ success: true, skills });
   } catch (err) {
     console.error(err.message);
-    res.status(500).send('Server error');
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 };
 

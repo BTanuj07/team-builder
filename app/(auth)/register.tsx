@@ -26,10 +26,13 @@ export default function RegisterScreen() {
 
     setIsLoading(true);
     try {
-      await authService.register(name.trim(), email.toLowerCase().trim(), password, college.trim());
-      Alert.alert('Success', 'Account created successfully!', [
-        { text: 'OK', onPress: () => router.replace('/(tabs)') }
-      ]);
+      const response = await authService.register(name.trim(), email.toLowerCase().trim(), password, college.trim());
+      Alert.alert('Success', 'Account created successfully!');
+      // Navigate to security setup with user ID
+      router.replace({
+        pathname: '/(auth)/security-setup',
+        params: { userId: response.user._id }
+      });
     } catch (error: any) {
       Alert.alert('Registration Failed', error.response?.data?.message || 'Please try again');
     } finally {

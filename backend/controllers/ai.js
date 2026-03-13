@@ -1,12 +1,12 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const Groq = require('groq-sdk');
 const User = require('../models/user');
 const Project = require('../models/project');
 const Skill = require('../models/skill');
 const AILog = require('../models/ai_log');
 
-// Initialize Google AI
-const genAI = process.env.GOOGLE_AI_API_KEY 
-  ? new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY)
+// Initialize Groq
+const groq = process.env.GROQ_API_KEY 
+  ? new Groq({ apiKey: process.env.GROQ_API_KEY })
   : null;
 
 // @desc    AI Team Builder - Main function
@@ -16,13 +16,6 @@ exports.buildTeam = async (req, res) => {
 
     if (!prompt) {
       return res.status(400).json({ success: false, message: 'Prompt is required' });
-    }
-
-    if (!genAI) {
-      return res.status(503).json({ 
-        success: false, 
-        message: 'AI service not configured. Please add GOOGLE_AI_API_KEY to .env' 
-      });
     }
 
     // Get user context
@@ -36,6 +29,117 @@ exports.buildTeam = async (req, res) => {
 
     // Get all skills
     const allSkills = await Skill.find();
+
+    // If Groq is not configured, use intelligent matching algorithm
+    if (!groq) {
+      console.log('Groq not configured, using intelligent matching...');
+      
+      // Extract keywords from prompt
+      const promptLower = prompt.toLowerCase();
+      const keywords = promptLower.split(/\s+/).filter(k => k.length > 2); // Filter out short words
+      
+      // Find relevant skills based on prompt
+      const relevantSkills = allSkills.filter(skill => 
+        keywords.some(keyword => 
+          skill.name.toLowerCase().includes(keyword) || 
+          keyword.includes(skill.name.toLowerCase())
+        )
+      );
+
+      // If no relevant skills found, return empty response
+      if (relevantSkills.length === 0) {
+        return res.json({
+          success: true,
+          data: {
+            analysis: `I couldn't find any relevant skills matching "${prompt}". Please try describing your project with specific technologies or skills (e.g., "React", "Python", "UI/UX Design").`,
+            requiredSkills: [],
+            recommendedTeam: [],
+            roleSplit: {},
+            draftMessage: '',
+            nextSteps: ['Try a more specific prompt with technology names', 'Browse available skills in user profiles']
+          },
+          requiresApproval: false,
+          message: 'No relevant skills found. Please refine your search.'
+        });
+      }
+
+      // Match users based on skills
+      const matchedUsers = availableUsers
+        .map(user => {
+          const matchedSkills = user.skills.filter(userSkill =>
+            relevantSkills.some(relSkill => relSkill._id.toString() === userSkill._id.toString())
+          );
+          return {
+            user,
+            matchScore: matchedSkills.length,
+            matchedSkills
+          };
+        })
+        .filter(match => match.matchScore > 0)
+        .sort((a, b) => b.matchScore - a.matchScore)
+        .slice(0, 4);
+
+      // If no users match, return empty response
+      if (matchedUsers.length === 0) {
+        return res.json({
+          success: true,
+          data: {
+            analysis: `I found relevant skills (${relevantSkills.map(s => s.name).join(', ')}) but no available users currently have these skills. Try different skills or check back later.`,
+            requiredSkills: relevantSkills.map(s => s.name),
+            recommendedTeam: [],
+            roleSplit: {},
+            draftMessage: '',
+            nextSteps: ['Try different skill combinations', 'Create a project and wait for interested members', 'Invite specific users you know']
+          },
+          requiresApproval: false,
+          message: 'No matching users found with these skills.'
+        });
+      }
+
+      // Build response
+      const aiResponse = {
+        analysis: `Based on your request "${prompt}", I've identified ${matchedUsers.length} team members with relevant skills. This team combines expertise in ${relevantSkills.slice(0, 3).map(s => s.name).join(', ')} to help you achieve your goals.`,
+        requiredSkills: relevantSkills.slice(0, 5).map(s => s.name),
+        recommendedTeam: matchedUsers.map(match => ({
+          userId: match.user._id,
+          name: match.user.name,
+          email: match.user.email,
+          college: match.user.college,
+          role: match.matchedSkills[0]?.name || 'Team Member',
+          matchReason: `Has ${match.matchScore} relevant skill${match.matchScore > 1 ? 's' : ''}: ${match.matchedSkills.map(s => s.name).join(', ')}`,
+          skills: match.user.skills.map(s => s.name),
+          portfolioLinks: match.user.portfolioLinks
+        })),
+        roleSplit: {
+          'Technical Lead': 'Oversees technical architecture and implementation',
+          'Developer': 'Implements features and functionality',
+          'Designer': 'Creates user interface and experience',
+          'Project Manager': 'Coordinates team and manages timeline'
+        },
+        draftMessage: `Hi team! I'm ${currentUser.name}, and I'm excited to form a team for this project: "${prompt}". I believe we have the perfect skill mix to build something amazing together. Let's connect and discuss our approach!`,
+        nextSteps: [
+          'Review team member profiles',
+          'Send connection requests',
+          'Schedule kickoff meeting',
+          'Define project scope and timeline',
+          'Start building!'
+        ]
+      };
+
+      // Log AI interaction
+      await AILog.create({
+        prompt,
+        response: aiResponse,
+        userId: req.user.id
+      });
+
+      return res.json({
+        success: true,
+        data: aiResponse,
+        requiresApproval: true,
+        message: 'Team recommendations generated using intelligent matching. Review and approve before sending invitations.'
+      });
+    }
 
     // Build context for AI
     const context = `
@@ -84,11 +188,24 @@ Format your response as JSON with this structure:
 }
 `;
 
-    // Call Google AI
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-    const result = await model.generateContent(context);
-    const response = await result.response;
-    let aiText = response.text();
+    // Call Groq
+    const completion = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are an AI assistant helping to build hackathon teams. Always respond with valid JSON.'
+        },
+        {
+          role: 'user',
+          content: context
+        }
+      ],
+      temperature: 0.7,
+      max_tokens: 2000
+    });
+
+    let aiText = completion.choices[0].message.content;
 
     // Try to extract JSON from response
     let aiResponse;

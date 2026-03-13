@@ -56,20 +56,21 @@ exports.getProjectById = async (req, res) => {
 // @desc    Create new project
 exports.createProject = async (req, res) => {
   try {
-    const { title, description, requiredSkills, teamSize, timeline } = req.body;
+    const { title, description, techStack, requiredSkills, teamSize, timeline } = req.body;
 
-    if (!title || !description || !requiredSkills || !teamSize) {
+    if (!title || !description) {
       return res.status(400).json({ 
         success: false, 
-        message: 'Please provide title, description, required skills, and team size' 
+        message: 'Please provide title and description' 
       });
     }
 
     const project = new Project({
       title,
       description,
-      requiredSkills,
-      teamSize,
+      techStack: techStack || [],
+      requiredSkills: requiredSkills || [],
+      teamSize: teamSize || 4,
       timeline,
       createdBy: req.user.id,
     });
@@ -101,10 +102,11 @@ exports.updateProject = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
-    const { title, description, requiredSkills, teamSize, timeline } = req.body;
+    const { title, description, techStack, requiredSkills, teamSize, timeline } = req.body;
 
     if (title) project.title = title;
     if (description) project.description = description;
+    if (techStack) project.techStack = techStack;
     if (requiredSkills) project.requiredSkills = requiredSkills;
     if (teamSize) project.teamSize = teamSize;
     if (timeline) project.timeline = timeline;

@@ -4,6 +4,7 @@ export interface Project {
   id: string;
   title: string;
   description: string;
+  techStack?: string[]; // Array of technology names
   requiredSkills: any[];
   teamSize: number;
   timeline?: string;

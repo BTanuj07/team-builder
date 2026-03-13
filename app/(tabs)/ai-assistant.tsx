@@ -2,8 +2,10 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Activi
 import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import aiService, { TeamRecommendation } from '../../services/aiService';
+import { useTheme } from '../../contexts/ThemeContext';
 
 export default function AIAssistantScreen() {
+  const { colors } = useTheme();
   const [prompt, setPrompt] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [response, setResponse] = useState<any>(null);
@@ -50,29 +52,29 @@ export default function AIAssistantScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Ionicons name="sparkles" size={32} color="#007AFF" />
-        <Text style={styles.headerTitle}>AI Team Builder</Text>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View style={[styles.header, { backgroundColor: colors.card }]}>
+        <Ionicons name="sparkles" size={32} color={colors.primary} />
+        <Text style={[styles.headerTitle, { color: colors.text }]}>AI Team Builder</Text>
       </View>
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
         {!response && (
           <>
-            <Text style={styles.sectionTitle}>What do you need?</Text>
-            <Text style={styles.subtitle}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>What do you need?</Text>
+            <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
               Describe your project and the team you're looking for
             </Text>
 
             <View style={styles.examplesContainer}>
-              <Text style={styles.examplesTitle}>Try these:</Text>
+              <Text style={[styles.examplesTitle, { color: colors.textSecondary }]}>Try these:</Text>
               {examplePrompts.map((example, index) => (
                 <TouchableOpacity
                   key={index}
-                  style={styles.exampleChip}
+                  style={[styles.exampleChip, { backgroundColor: colors.badge }]}
                   onPress={() => setPrompt(example)}
                 >
-                  <Text style={styles.exampleText}>{example}</Text>
+                  <Text style={[styles.exampleText, { color: colors.primary }]}>{example}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -81,52 +83,82 @@ export default function AIAssistantScreen() {
 
         {response && (
           <View style={styles.responseContainer}>
-            <View style={styles.analysisCard}>
-              <Text style={styles.cardTitle}>Analysis</Text>
-              <Text style={styles.analysisText}>{response.analysis}</Text>
+            <View style={[styles.analysisCard, { backgroundColor: colors.card }]}>
+              <Text style={[styles.cardTitle, { color: colors.text }]}>📊 Analysis</Text>
+              <Text style={[styles.analysisText, { color: colors.textSecondary }]}>{response.analysis}</Text>
             </View>
 
-            <View style={styles.teamCard}>
-              <Text style={styles.cardTitle}>Recommended Team</Text>
-              {response.recommendedTeam?.map((member: TeamRecommendation, index: number) => (
-                <View key={index} style={styles.memberCard}>
-                  <View style={styles.memberHeader}>
-                    <Ionicons name="person-circle" size={40} color="#007AFF" />
-                    <View style={styles.memberInfo}>
-                      <Text style={styles.memberName}>{member.name}</Text>
-                      <Text style={styles.memberRole}>{member.role}</Text>
+            {response.recommendedTeam && response.recommendedTeam.length > 0 && (
+              <View style={[styles.teamCard, { backgroundColor: colors.card }]}>
+                <Text style={[styles.cardTitle, { color: colors.text }]}>👥 Recommended Team</Text>
+                {response.recommendedTeam.map((member: TeamRecommendation, index: number) => (
+                  <View key={index} style={[styles.memberCard, { borderTopColor: colors.border }]}>
+                    <View style={styles.memberHeader}>
+                      <Ionicons name="person-circle" size={40} color={colors.primary} />
+                      <View style={styles.memberInfo}>
+                        <Text style={[styles.memberName, { color: colors.text }]}>{member.name}</Text>
+                        <Text style={[styles.memberRole, { color: colors.primary }]}>{member.role}</Text>
+                      </View>
+                    </View>
+                    <Text style={[styles.matchReason, { color: colors.textSecondary }]}>{member.matchReason}</Text>
+                    <View style={styles.memberSkills}>
+                      {member.skills?.map((skill, idx) => (
+                        <View key={idx} style={[styles.skillBadge, { backgroundColor: colors.badge }]}>
+                          <Text style={[styles.skillText, { color: colors.badgeText }]}>{skill}</Text>
+                        </View>
+                      ))}
                     </View>
                   </View>
-                  <Text style={styles.matchReason}>{member.matchReason}</Text>
-                  <View style={styles.memberSkills}>
-                    {member.skills?.map((skill, idx) => (
-                      <View key={idx} style={styles.skillBadge}>
-                        <Text style={styles.skillText}>{skill}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              ))}
-            </View>
+                ))}
+              </View>
+            )}
 
-            <View style={styles.messageCard}>
-              <Text style={styles.cardTitle}>Draft Message</Text>
-              <Text style={styles.draftMessage}>{response.draftMessage}</Text>
-            </View>
+            {response.roleSplit && Object.keys(response.roleSplit).length > 0 && (
+              <View style={[styles.roleSplitCard, { backgroundColor: colors.card }]}>
+                <Text style={[styles.cardTitle, { color: colors.text }]}>🎯 Suggested Role Split</Text>
+                {Object.entries(response.roleSplit).map(([role, description], index) => (
+                  <View key={index} style={[styles.roleItem, { borderTopColor: colors.border }]}>
+                    <Text style={[styles.roleName, { color: colors.primary }]}>{role}</Text>
+                    <Text style={[styles.roleDescription, { color: colors.textSecondary }]}>{description as string}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {response.draftMessage && (
+              <View style={[styles.messageCard, { backgroundColor: colors.card }]}>
+                <Text style={[styles.cardTitle, { color: colors.text }]}>✉️ Draft Message</Text>
+                <Text style={[styles.draftMessage, { color: colors.text }]}>{response.draftMessage}</Text>
+              </View>
+            )}
+
+            {response.nextSteps && response.nextSteps.length > 0 && (
+              <View style={[styles.nextStepsCard, { backgroundColor: colors.card }]}>
+                <Text style={[styles.cardTitle, { color: colors.text }]}>🚀 Next Steps</Text>
+                {response.nextSteps.map((step: string, index: number) => (
+                  <View key={index} style={styles.stepItem}>
+                    <View style={[styles.stepNumber, { backgroundColor: colors.primary }]}>
+                      <Text style={styles.stepNumberText}>{index + 1}</Text>
+                    </View>
+                    <Text style={[styles.stepText, { color: colors.text }]}>{step}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
 
             <View style={styles.actionButtons}>
               <TouchableOpacity 
-                style={styles.approveButton}
+                style={[styles.approveButton, { backgroundColor: colors.primary }]}
                 onPress={handleApprove}
               >
                 <Ionicons name="checkmark-circle" size={20} color="#fff" />
                 <Text style={styles.approveButtonText}>Approve & Send</Text>
               </TouchableOpacity>
               <TouchableOpacity 
-                style={styles.cancelButton}
+                style={[styles.cancelButton, { backgroundColor: colors.inputBackground }]}
                 onPress={() => setResponse(null)}
               >
-                <Text style={styles.cancelButtonText}>Try Again</Text>
+                <Text style={[styles.cancelButtonText, { color: colors.text }]}>Try Again</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -134,17 +166,18 @@ export default function AIAssistantScreen() {
       </ScrollView>
 
       {!response && (
-        <View style={styles.inputContainer}>
+        <View style={[styles.inputContainer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { backgroundColor: colors.inputBackground, color: colors.text }]}
             placeholder="Describe your team needs..."
+            placeholderTextColor={colors.textSecondary}
             value={prompt}
             onChangeText={setPrompt}
             multiline
             maxLength={500}
           />
           <TouchableOpacity 
-            style={[styles.sendButton, isLoading && styles.sendButtonDisabled]}
+            style={[styles.sendButton, { backgroundColor: colors.primary }, isLoading && styles.sendButtonDisabled]}
             onPress={handleSubmit}
             disabled={isLoading}
           >
@@ -301,6 +334,68 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   draftMessage: {
+    fontSize: 14,
+    color: '#333',
+    lineHeight: 20,
+  },
+  roleSplitCard: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  roleItem: {
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    paddingTop: 12,
+    marginTop: 12,
+  },
+  roleName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#007AFF',
+    marginBottom: 4,
+  },
+  roleDescription: {
+    fontSize: 13,
+    color: '#666',
+    lineHeight: 18,
+  },
+  nextStepsCard: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  stepItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 12,
+  },
+  stepNumber: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#007AFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  stepNumberText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  stepText: {
+    flex: 1,
     fontSize: 14,
     color: '#333',
     lineHeight: 20,
